@@ -15,15 +15,15 @@ svg {
     cursor: crosshair;
   }
   
-  path.link {
+  .link {
     fill: none;
-    stroke: green;
+    stroke: green !important;
     stroke-width: 4px;
     cursor: default;
   }
   
   svg:not(.active):not(.ctrl) path.link {
-    cursor: pointer;
+    cursor: pointer !important;
   }
   
   path.link.selected {

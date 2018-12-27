@@ -17,6 +17,7 @@ export class D3Component implements OnInit, AfterContentInit, AfterViewInit {
   public circle: any;
   public path: any;
   public addBtn: any;
+  private tempGroup: any;
 
   public nodes: Array<any> = [
                               { id: 0, reflexive: false },
@@ -50,6 +51,7 @@ export class D3Component implements OnInit, AfterContentInit, AfterViewInit {
       .force('charge', d3.forceManyBody().strength(-500))
       .force('x', d3.forceX(this.width / 2))
       .force('y', d3.forceY(this.height / 2));
+    this.force.alpha(0.1).alphaDecay(0.7).velocityDecay(0.8).alphaTarget(0.5);
 
     this.svg = d3.select('svg')
       .attr('oncontextmenu', 'return false;')
@@ -85,8 +87,8 @@ export class D3Component implements OnInit, AfterContentInit, AfterViewInit {
     this.dragLine = this.svg.append('svg:path')
       .attr('class', 'link dragline hidden')
       .attr('d', 'M0,0L0,0');
-    /* // code for pan and zoom
-    this.svg.append('rect')
+    // code for pan and zoom
+   /*  this.svg.append('rect')
       .attr('width', this.width)
       .attr('height', this.height)
       .style('fill', 'none')
@@ -101,7 +103,7 @@ export class D3Component implements OnInit, AfterContentInit, AfterViewInit {
     this.drag = d3.drag()
       .on('start', (d) => {
         if (!d3.event.active) {
-          this.force.alphaTarget(0.3).restart();
+          this.force.alpha(0.1).alphaDecay(0.7).velocityDecay(0.8).alphaTarget(0.5).restart();
         }
         d.fx = d.x;
         d.fy = d.y;
@@ -112,7 +114,7 @@ export class D3Component implements OnInit, AfterContentInit, AfterViewInit {
       })
       .on('end', (d) => {
         if (!d3.event.active) {
-          this.force.alphaTarget(0);
+          this.force.alpha(0.1).alphaDecay(0.7).velocityDecay(0.8).alphaTarget(0.5);
         }
         d.fx = null;
         d.fy = null;
@@ -129,7 +131,7 @@ export class D3Component implements OnInit, AfterContentInit, AfterViewInit {
   }
 
   ngAfterViewInit() {
-    this.force.alphaMin(0.3).alphaTarget(0.55).alphaDecay(0.4).velocityDecay(0.85).restart();
+    this.force.alpha(0.1).alphaDecay(0.7).velocityDecay(0.8).alphaTarget(0.5).restart();
    }
 
   // update force layout (called automatically each iteration)
@@ -159,18 +161,22 @@ export class D3Component implements OnInit, AfterContentInit, AfterViewInit {
 
     // update existing links
     this.path.classed('selected', (d) => d === this.selectedLink)
-      .style('marker-start', (d) => d.left ? 'url(#fletcher)' : '')
-      .style('marker-end', (d) => d.right ? 'url(#arrow-head)' : '');
+      .attr('marker-start', (d) => d.left ? 'url(#fletcher)' : '')
+      .attr('marker-end', (d) => d.right ? 'url(#arrow-head)' : '');
 
     // remove old links
     this.path.exit().remove();
 
     // add new links
-    this.path = this.path.enter().append('svg:path')
+    this.path = this.path.enter().append('g:path')
       .attr('class', 'link')
-      .classed('selected', (d) => d === this.selectedLink)
-      .style('marker-start', (d) => d.left ? 'url(#fletcher)' : '')
-      .style('marker-end', (d) => d.right ? 'url(#arrow-head)' : '')
+      .classed('selected', (d) => {
+        console.log('d', d);
+        console.log('selectedlink', this.selectedLink);
+        return d === this.selectedLink;
+      })
+      .attr('marker-start', (d) => d.left ? 'url(#fletcher)' : '')
+      .attr('marker-end', (d) => d.right ? 'url(#arrow-head)' : '')
       .on('mousedown', (d) => {
         if (d3.event.ctrlKey) {
           return;
@@ -190,102 +196,119 @@ export class D3Component implements OnInit, AfterContentInit, AfterViewInit {
     // update existing nodes (reflexive & selected visual states)
     this.circle.selectAll('circle')
       .style('fill', (d) => (d === this.selectedNode) ? d3.rgb(this.colors(d.id)).brighter().toString() : this.colors(d.id))
-      .classed('reflexive', (d) => d.reflexive);
+      .attr('class', 'node');
 
     // remove old nodes
     this.circle.exit().remove();
 
     // add new nodes
-    const g = this.circle.enter().append('svg:g');
+    this.tempGroup = this.circle.enter().append('svg:g');
 
-    g.append('svg:circle')
-      .attr('class', 'node')
+    this.tempGroup.append('svg:circle')
       .attr('r', 12)
       .style('fill', (d) => (d === this.selectedNode) ? d3.rgb(this.colors(d.id)).brighter().toString() : this.colors(d.id))
-      .style('stroke', (d) => d3.rgb(this.colors(d.id)).darker().toString())
-      .classed('reflexive', (d) => d.reflexive)
-      .on('mouseover', (d) => {
-        if (!this.mouseDownNode || d === this.mouseDownNode) {
-          return;
-        }
-        // enlarge target node
-        d3.select(d3.event.currentTarget).attr('transform', 'scale(1.1)');
-      })
-      .on('mouseout', (d) => {
-        if (!this.mouseDownNode || d === this.mouseDownNode) {
-          return;
-        }
-        // unenlarge target node
-        d3.select(d3.event.currentTarget).attr('transform', '');
-      })
-      .on('mousedown', (d) => {
-        if (d3.event.ctrlKey) {
-          return;
-        }
-        // select node
-        this.mouseDownNode = d;
-        this.selectedNode = (this.mouseDownNode === this.selectedNode) ? null : this.mouseDownNode;
-        this.selectedLink = null;
+      .attr('stroke', (d) => d3.rgb(this.colors(d.id)).darker().toString())
+      .classed('reflexive', (d) => d.reflexive);
 
-        // reposition drag line
-        this.dragLine
-          .style('marker-end', 'url(#arrow-head)')
-          .classed('hidden', false)
-          .attr('d', `M${this.mouseDownNode.x},${this.mouseDownNode.y}L${this.mouseDownNode.x},${this.mouseDownNode.y}`);
-
-          this.draw();
-      })
-      .on('mouseup', (d) => {
-        if (!this.mouseDownNode) {
-           return;
-        }
-        // needed by FF
-        this.dragLine
-          .classed('hidden', true)
-          .style('marker-end', '');
-
-        // check for drag-to-self
-        this.mouseUpNode = d;
-        if (this.mouseUpNode === this.mouseDownNode) {
-          this.resetMouseVars();
-          return;
-        }
-
-        // unenlarge target node
-        d3.select(d3.event.currentTarget).attr('transform', '');
-
-        // add link to graph (update if exists)
-        // NB: links are strictly source < target; arrows separately specified by booleans
-        const isRight = this.mouseDownNode.id < this.mouseUpNode.id;
-        const source = isRight ? this.mouseDownNode : this.mouseUpNode;
-        const target = isRight ? this.mouseUpNode : this.mouseDownNode;
-
-        const link = this.links.filter((l) => l.source === source && l.target === target)[0];
-        if (link) {
-          link[isRight ? 'right' : 'left'] = true;
-        } else {
-          this.links.push({ source, target, left: !isRight, right: isRight });
-        }
-
-        // select new link
-        this.selectedLink = link;
-        this.selectedNode = null;
-        this.draw();
+    this.tempGroup.on('mouseover', (d) => {
+      if (!this.mouseDownNode || d === this.mouseDownNode) {
+        return;
+      }
+      // enlarge target node
+      d3.select(d3.event.target).attr('transform', (d1) => {
+        console.log('Mouseover Circle ', d);
+        console.log('Mouseover Inner Circle ', d1);
+        return 'scale(1.2)';
       });
+    });
+
+    this.tempGroup.on('mouseout', (d) => {
+      if (!this.mouseDownNode || d === this.mouseDownNode) {
+        return;
+      }
+      // unenlarge target node
+      d3.select(d3.event.target).attr('transform', '');
+    });
+
+    this.tempGroup.on('mousedown', (d) => {
+      debugger;
+      if (d3.event.ctrlKey) {
+        return;
+      }
+      // select node
+      this.mouseDownNode = d;
+      this.selectedNode = (this.mouseDownNode === this.selectedNode) ? null : this.mouseDownNode;
+      this.selectedLink = null;
+
+      // reposition drag line
+      this.dragLine
+        .attr('marker-end', 'url(#arrow-head)')
+        .classed('hidden', false)
+        .attr('d', `M${this.mouseDownNode.x},${this.mouseDownNode.y}L${this.mouseDownNode.x},${this.mouseDownNode.y}`);
+
+        this.draw();
+    });
+
+    this.tempGroup.on('mouseup', (d) => {
+      debugger;
+      if (!this.mouseDownNode) {
+          return;
+      }
+      // needed by FF
+      this.dragLine
+        .classed('hidden', true)
+        .attr('marker-end', '');
+
+      // check for drag-to-self
+      this.mouseUpNode = d;
+      if (this.mouseUpNode === this.mouseDownNode) {
+        this.resetMouseVars();
+        return;
+      }
+
+      // unenlarge target node
+      d3.select(d3.event.target).attr('transform', '');
+
+      // add link to graph (update if exists)
+      // NB: links are strictly source < target; arrows separately specified by booleans
+      const isRight = this.mouseDownNode.id < this.mouseUpNode.id;
+      const source = isRight ? this.mouseDownNode : this.mouseUpNode;
+      const target = isRight ? this.mouseUpNode : this.mouseDownNode;
+
+      console.log('selectedNode', this.selectedNode);
+      console.log('mouseDownNode', this.mouseDownNode);
+      console.log('mouseUpNode', this.mouseUpNode);
+
+      const link = this.links.filter((l) => l.source === source && l.target === target)[0];
+      console.log('link', link);
+      if (link) {
+        link[isRight ? 'right' : 'left'] = true;
+      } else {
+        const tempLink = { source, target, left: !isRight, right: isRight };
+        this.links.push(tempLink);
+      }
+
+      // select new link
+      this.selectedLink = link;
+      this.selectedNode = null;
+      this.draw();
+    });
 
     // show node IDs
-    g.append('svg:text')
+    this.tempGroup.append('svg:text')
       .attr('x', 0)
       .attr('y', 4)
       .attr('class', 'id')
       .text((d) => d.id);
 
-      this.circle = g.merge(this.circle);
+    this.circle = this.tempGroup.merge(this.circle);
 
     // set the graph in motion
-    this.force.nodes(this.nodes).on('tick', () => this.ticked());
+    this.force.nodes(this.nodes)
+      .on('tick', () => this.ticked())
+      .on('end', () => console.log('Simulation Ended.'));
     this.force.force('link').links(this.links);
-    this.force.alphaTarget(0.3).restart();
+    this.force.alpha(0.1).alphaDecay(0.7).velocityDecay(0.8).alphaTarget(0.5).restart();
   }
 
   /**
@@ -316,7 +339,7 @@ export class D3Component implements OnInit, AfterContentInit, AfterViewInit {
        return;
     }
     // insert new node at point
-    const point = d3.mouse(d3.event.currentTarget);
+    const point = d3.mouse(d3.event.target);
     const node = { id: ++this.lastNodeId, reflexive: false, x: point[0], y: point[1]};
     this.nodes.push(node);
     // redraw the whole visualization.
@@ -332,7 +355,7 @@ export class D3Component implements OnInit, AfterContentInit, AfterViewInit {
     }
     // update drag line
     this.dragLine.attr('d',
-        `M${this.mouseDownNode.x},${this.mouseDownNode.y}L${d3.mouse(d3.event.currentTarget)[0]},${d3.mouse(d3.event.currentTarget)[1]}`);
+        `M${this.mouseDownNode.x},${this.mouseDownNode.y}L${d3.mouse(d3.event.target)[0]},${d3.mouse(d3.event.target)[1]}`);
     // redraw the whole visualization.
     this.draw();
   }
@@ -341,6 +364,7 @@ export class D3Component implements OnInit, AfterContentInit, AfterViewInit {
    * Should be called when mouseup event is fired.
    */
   mouseup() {
+    console.log('Target', d3.event.target);
     if (this.mouseDownNode) {
       // hide drag line
       this.dragLine
@@ -448,7 +472,10 @@ export class D3Component implements OnInit, AfterContentInit, AfterViewInit {
   /**
    * Adding pan and zoom capabilities.
    */
-  /* zoomed() {
-    this.svg.attr('transform', d3.event.transform);
-  } */
+  zoomed() {
+    this.svg
+      .attr('transform',
+      `translate(${d3.event.transform.x}, ${d3.event.transform.y})` + ' ' +
+      `scale(${d3.event.transform.k})`);
+  }
 }
